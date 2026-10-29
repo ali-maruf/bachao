@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bachao App</title>
+<meta name="theme-color" content="#7A1F3D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@500;600;700&family=Hind+Siliguri:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/tokens.css">
+<style>
+  /* Buyer app. Layout: phone column with sticky top bar + bottom nav; from 900px a top header, list+map split and detail with sticky side panel. */
+  :root { padding-top: env(safe-area-inset-top, 0px); }
+  body { min-height: 100vh; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--surface); }
+
+  .topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 25; background: var(--surface); border-bottom: 1px solid var(--line); }
+  .topbar .wrap { display: flex; align-items: center; gap: var(--s2); min-height: 60px; }
+  .topbar .logo { display: none; }
+  .area-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; border: 0; background: none; padding: 0 var(--s2) 0 0; cursor: pointer; text-align: left; min-width: 0; }
+  .area-btn .lbl { display: grid; line-height: 1.2; min-width: 0; }
+  .area-btn small { color: var(--muted); font-size: 12px; }
+  .area-btn b { font: 600 17px/1.2 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .area-btn .icon { color: var(--primary); }
+  .topbar .spacer { flex: 1; }
+  .topbar .desk-nav { display: none; gap: var(--s1); }
+  .topbar .desk-nav a { padding: var(--s2) var(--s3); border-radius: var(--r-md); color: var(--ink); text-decoration: none; font-weight: 500; }
+  .topbar .desk-nav a[aria-current="page"] { background: var(--primary-soft); color: var(--primary); }
+  @media (min-width: 900px) { .topbar .logo { display: inline-flex; margin-right: var(--s4); } .topbar .desk-nav { display: flex; } }
+
+  .offline-banner { background: var(--warn-bg); color: var(--warn); font-size: 14px; font-weight: 500; }
+  .offline-banner .wrap { display: flex; gap: var(--s2); align-items: center; padding-block: var(--s2); }
+
+  main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  @media (min-width: 900px) { main { padding-bottom: var(--s8); } }
+
+  /* bottom nav */
+  .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; background: var(--surface); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); padding: 4px max(8px, env(safe-area-inset-right, 0px)) calc(4px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+  .bottom-nav a { display: grid; justify-items: center; gap: 2px; min-height: 56px; align-content: center; text-decoration: none; color: var(--muted); font-size: 12px; font-weight: 600; position: relative; }
+  .bottom-nav a .icon { width: 24px; height: 24px; }
+  .bottom-nav a[aria-current="page"] { color: var(--primary); }
+  .bottom-nav a[aria-current="page"] .icon { fill: var(--primary-soft); }
+  .bottom-nav a[aria-current="page"]::before { content: ""; position: absolute; top: -4px; width: 32px; height: 3px; border-radius: 0 0 3px 3px; background: var(--primary); }
+  @media (min-width: 900px) { .bottom-nav { display: none; } }
+  body.no-nav .bottom-nav { display: none; }
+
+  /* discover */
+  .disc-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s3); padding-block: var(--s4) var(--s3); }
+  .disc-head h1 { font-size: clamp(24px, 4vw, 32px); }
+  .toolbar { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; justify-content: space-between; }
+  .seg { display: inline-flex; background: var(--sunken); border-radius: var(--r-pill); padding: 3px; }
+  .seg button { min-height: 40px; padding: 0 var(--s4); border: 0; background: none; border-radius: var(--r-pill); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
+  .sort { display: inline-flex; align-items: center; gap: var(--s2); font-size: 14px; color: var(--muted); }
+  .sort select { min-height: 40px; border: 1.5px solid var(--line); border-radius: var(--r-md); background: var(--surface); padding: 0 var(--s3); font-weight: 600; color: var(--ink); }
+  .chip-row { display: flex; gap: var(--s2); align-items: center; }
+  .chip-row .chips { flex: 1; min-width: 0; }
+  .count { font-size: 14px; color: var(--muted); }
+  .results { display: grid; gap: var(--s4); grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+  .disc-body { display: grid; gap: var(--s5); }
+  .map-pane { display: none; }
+  .disc-body.show-map .map-pane { display: block; }
+  .disc-body.show-map .list-pane { display: none; }
+  @media (min-width: 900px) {
+    .disc-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+    .disc-body .map-pane, .disc-body.show-map .map-pane { display: block; position: sticky; top: 76px; }
+    .disc-body.show-map .list-pane { display: block; }
+    .seg { display: none; }
+    .results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1200px) { .disc-body { grid-template-columns: 1.4fr 1fr; } .results { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  .map { position: relative; aspect-ratio: 4 / 5; max-width: 100%; border-radius: var(--r-lg); overflow: hidden; background: var(--map-land); border: 1px solid var(--line); }
+  @media (min-width: 900px) { .map { aspect-ratio: 5 / 6; } }
+  .map svg.base { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .pin { position: absolute; transform: translate(-50%, -100%); border: 0; background: var(--surface); color: var(--ink); font: 700 14px/1 var(--font-display); padding: 8px 10px; border-radius: var(--r-pill); box-shadow: var(--sh-2); cursor: pointer; min-height: 34px; white-space: nowrap; transition: transform var(--t-base) var(--ease); }
+  .pin::after { content: ""; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--surface); border-bottom: 0; }
+  .pin.sel { background: var(--primary); color: var(--on-primary); transform: translate(-50%, -100%) scale(1.12); z-index: 2; }
+  .pin.sel::after { border-top-color: var(--primary); }
+  .pin.out { color: var(--muted); text-decoration: line-through; }
+  .you { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--focus); border: 3px solid var(--surface); box-shadow: 0 0 0 6px color-mix(in srgb, var(--focus) 25%, transparent); transform: translate(-50%, -50%); }
+  .map-card { position: absolute; left: var(--s3); right: var(--s3); bottom: var(--s3); }
+  .map-card .bag-card { grid-template-columns: 110px 1fr; align-items: center; padding: var(--s2); box-shadow: var(--sh-2); }
+  .map-card .bag-card .photo { aspect-ratio: 1; }
+  .map-card .bag-card .photo .badge-left { display: none; }
+  .map-card .bag-card .body { padding: 0; gap: 4px; }
+  .map-card .bag-card .foot .badge-best, .map-card .bag-card .fav { display: none; }
+  .map-legend { position: absolute; top: var(--s3); left: var(--s3); background: var(--surface); border-radius: var(--r-md); padding: 4px 10px; font-size: 12px; color: var(--muted); box-shadow: var(--sh-1); }
+
+  /* detail */
+  .back-row { display: flex; align-items: center; justify-content: space-between; padding-block: var(--s2); }
+  .detail { display: grid; gap: var(--s5); }
+  @media (min-width: 900px) { .detail { grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); align-items: start; gap: var(--s6); } }
+  .gallery { display: grid; grid-auto-flow: column; grid-auto-columns: 100%; overflow-x: auto; scroll-snap-type: x mandatory; gap: var(--s2); border-radius: var(--r-lg); scrollbar-width: none; }
+  .gallery::-webkit-scrollbar { display: none; }
+  .gallery .photo { scroll-snap-align: start; border-radius: var(--r-lg); }
+  .dots { display: flex; justify-content: center; gap: 6px; margin-top: var(--s2); }
+  .dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+  .dots span.on { background: var(--primary); width: 18px; border-radius: 3px; }
+  .d-main { display: grid; gap: var(--s5); min-width: 0; }
+  .d-title { display: grid; gap: var(--s2); }
+  .d-title .row { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+  .block { display: grid; gap: var(--s3); padding-top: var(--s5); border-top: 1px solid var(--line); }
+  .block h2 { font-size: 20px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: var(--s2) var(--s4); font-size: 15px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+  .pickup-card { display: grid; gap: var(--s3); background: var(--sunken); border-radius: var(--r-lg); padding: var(--s4); }
+  .pickup-card .big { font: 700 22px/1.2 var(--font-display); }
+  .countdown { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; color: var(--success); }
+  .countdown.later { color: var(--muted); }
+  .allergens { display: flex; flex-wrap: wrap; gap: var(--s2); }
+  .mini-map { position: relative; aspect-ratio: 16 / 7; max-width: 100%; border-radius: var(--r-md); overflow: hidden; background: var(--map-land); }
+  .mini-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .mini-map .pin { left: 50%; top: 58%; }
+  .row-btns { display: flex; gap: var(--s2); flex-wrap: wrap; }
+  .scores { display: grid; gap: var(--s2); }
+  .score { display: grid; grid-template-columns: 90px 1fr 32px; gap: var(--s3); align-items: center; font-size: 14px; }
+  .bar { height: 8px; border-radius: 4px; background: var(--sunken); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--haldi); border-radius: 4px; }
+  .review { display: grid; gap: 4px; padding-block: var(--s3); border-bottom: 1px solid var(--line); }
+  .review:last-child { border-bottom: 0; }
+  .review .who { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
+  .review .who b { color: var(--ink); }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 52px; }
+  .switch { position: relative; width: 52px; height: 32px; flex: none; }
+  .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+  .switch span { position: absolute; inset: 0; border-radius: 16px; background: var(--line); transition: background var(--t-base); }
+  .switch span::after { content: ""; position: absolute; left: 4px; top: 4px; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); box-shadow: var(--sh-1); transition: transform var(--t-base) var(--ease); }
+  .switch input:checked + span { background: var(--primary); }
+  .switch input:checked + span::after { transform: translateX(20px); }
+  .switch input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .side { display: grid; gap: var(--s4); }
+  .buy-card { display: grid; gap: var(--s3); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s5); }
+  .cta-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 26; background: var(--surface); border-top: 1px solid var(--line); box-shadow: var(--sh-2); padding: var(--s3) max(16px, env(safe-area-inset-right, 0px)) calc(var(--s3) + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: var(--s3); align-items: center; justify-content: space-between; }
+  .cta-bar .price .was, .cta-bar .price .badge { font-size: 13px; }
+  .cta-bar .btn { flex: 1 1 auto; max-width: 260px; }
+  .cta-sub { font-size: 12px; color: var(--muted); }
+  .buy-card .cta-desk { display: none; }
+  @media (min-width: 900px) {
+    .side { position: sticky; top: 80px; }
+    .cta-bar { display: none; }
+    .buy-card .cta-desk { display: flex; }
+  }
+
+  /* checkout */
+  .narrow { max-width: 640px; margin-inline: auto; display: grid; gap: var(--s5); }
+  .summary { display: grid; grid-template-columns: 88px 1fr; gap: var(--s3); align-items: center; background: var(--surface); border-radius: var(--r-lg); padding: var(--s3); border: 1px solid var(--line); }
+  .summary .photo { aspect-ratio: 1; }
+  .summary > div { min-width: 0; display: grid; gap: 4px; }
+  .stepper { display: inline-flex; align-items: center; border: 1.5px solid var(--line); border-radius: var(--r-pill); background: var(--surface); }
+  .stepper button { width: 48px; height: 48px; border: 0; background: none; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: var(--primary); }
+  .stepper button:disabled { color: var(--line); cursor: not-allowed; }
+  .stepper output { min-width: 32px; text-align: center; font: 700 20px/1 var(--font-display); }
+  .pay-list { display: grid; gap: var(--s2); border: 0; padding: 0; margin: 0; }
+  .pay-opt { position: relative; display: grid; grid-template-columns: 44px 1fr 24px; gap: var(--s3); align-items: center; padding: var(--s3) var(--s4); background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--r-md); cursor: pointer; min-height: 64px; }
+  .pay-opt input { position: absolute; opacity: 0; }
+  .pay-opt .logo-box { width: 44px; height: 32px; border-radius: var(--r-sm); display: grid; place-items: center; font: 700 11px/1 var(--font-body); color: #fff; }
+  .pay-opt .radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; }
+  .pay-opt:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); }
+  .pay-opt:has(input:checked) .radio { border-color: var(--primary); }
+  .pay-opt:has(input:checked) .radio::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+  .pay-opt:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .pay-opt .t { display: grid; gap: 2px; min-width: 0; }
+  .pay-opt .t small { color: var(--muted); font-size: 13px; }
+  .rule { display: flex; gap: var(--s2); background: var(--warn-bg); color: var(--warn); padding: var(--s3); border-radius: var(--r-md); font-size: 14px; }
+  .rule .icon { flex: none; margin-top: 2px; }
+  .totals { display: grid; gap: var(--s2); }
+  .totals .line { display: flex; justify-content: space-between; font-size: 15px; }
+  .totals .line.total { font: 700 20px/1.2 var(--font-display); border-top: 1px dashed var(--line); padding-top: var(--s3); }
+  .totals .line.saving { color: var(--success); font-weight: 600; }
+  .alert { display: flex; gap: var(--s3); padding: var(--s4); border-radius: var(--r-md); background: var(--error-bg); color: var(--error); }
+  .alert .icon { flex: none; width: 22px; height: 22px; }
+  .alert b { display: block; }
+  .alert p { color: var(--ink); font-size: 15px; }
+  .fine { font-size: 13px; color: var(--muted); }
+
+  /* OTP */
+  .otp { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--s2); }
+  .otp input { width: 100%; height: 56px; text-align: center; font: 700 24px/1 var(--font-display); border: 1.5px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+  .otp input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+  .phone-row { display: flex; gap: var(--s2); }
+  .phone-row .cc { flex: none; display: grid; place-items: center; padding: 0 var(--s3); border: 1.5px solid var(--line); border-radius: var(--r-md); background: var(--sunken); font-weight: 600; }
+
+  /* order / ticket */
+  .done-head { display: grid; justify-items: center; text-align: center; gap: var(--s2); padding-top: var(--s4); }
+  .done-head .tick { width: 56px; height: 56px; border-radius: 50%; background: var(--success-bg); color: var(--success); display: grid; place-items: center; }
+  .done-head .tick .icon { width: 30px; height: 30px; stroke-width: 3; }
+  .ticket { background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--sh-2); overflow: hidden; }
+  .ticket .top { padding: var(--s5); display: grid; justify-items: center; gap: var(--s3); text-align: center; }
+  .qr-box { background: #FFFFFF; padding: 12px; border-radius: var(--r-md); border: 1px solid var(--line); }
+  .qr-box canvas { display: block; width: 168px; height: 168px; image-rendering: pixelated; }
+  .code { font: 700 52px/1 var(--font-display); letter-spacing: .18em; color: var(--primary); padding-left: .18em; }
+  .tear { height: 24px; position: relative; background: radial-gradient(circle at 0 50%, var(--bg) 12px, transparent 12.5px) left / 50% 100% no-repeat, radial-gradient(circle at 100% 50%, var(--bg) 12px, transparent 12.5px) right / 50% 100% no-repeat; }
+  .tear::after { content: ""; position: absolute; left: 20px; right: 20px; top: 50%; border-top: 2px dashed var(--line); }
+  .ticket .bottom { padding: var(--s4) var(--s5) var(--s5); display: grid; gap: var(--s3); }
+  .big-count { font: 700 28px/1.1 var(--font-display); }
+  .tip { display: flex; gap: var(--s2); font-size: 14px; color: var(--muted); align-items: center; }
+  .phone-num { font-weight: 600; user-select: all; }
+
+  /* demo controls */
+  .demo-btn { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); z-index: 24; border: 1.5px dashed var(--muted); background: var(--surface); color: var(--muted); border-radius: var(--r-pill); min-height: 40px; padding: 0 var(--s3); font-size: 13px; font-weight: 600; cursor: pointer; }
+  body:not(.on-discover) .demo-btn { display: none; }
+  @media (min-width: 900px) { .demo-btn { bottom: var(--s5); } }
+  .demo-inline { justify-self: center; border: 1.5px dashed var(--muted); background: none; color: var(--muted); border-radius: var(--r-pill); min-height: 40px; padding: 0 var(--s3); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .opt-list { display: grid; gap: var(--s2); }
+  .opt-list label { display: flex; gap: var(--s3); align-items: center; min-height: 48px; padding: 0 var(--s3); border: 1.5px solid var(--line); border-radius: var(--r-md); cursor: pointer; }
+  .opt-list input { width: 20px; height: 20px; accent-color: var(--primary); }
+  .sheet .sheet-head { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); }
+  .range-row { display: grid; gap: var(--s1); }
+  .range-row label { display: flex; justify-content: space-between; font-weight: 600; }
+  .range-row input { width: 100%; accent-color: var(--primary); min-height: 32px; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a class="logo" href="index.html" aria-label="Bachao home"><span id="logo-mark"></span><span>bachao</span></a>
+    <button class="area-btn" id="area-btn" type="button"><span id="area-pin"></span><span class="lbl"><small data-i18n="pick_near">Bags near</small><b data-i18n="area_now">Dhanmondi 27</b></span><span id="area-chev"></span></button>
+    <span class="spacer"></span>
+    <nav class="desk-nav" aria-label="App">
+      <a href="#discover" aria-current="page" data-i18n="nav_disc">Discover</a>
+      <a href="#" data-soon data-i18n="nav_fav">Favourites</a>
+      <a href="#" data-soon data-i18n="nav_orders">Orders</a>
+      <a href="#" data-soon data-i18n="nav_me">Me</a>
+    </nav>
+    <div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="bn" aria-pressed="false" lang="bn">বাং</button>
+    </div>
+  </div>
+</header>
+<div class="offline-banner" id="offline" role="status" hidden><div class="wrap"><span id="off-ic"></span><span data-i18n="offline">You're offline. Showing bags from 7:32 PM. Reserving needs a connection.</span></div></div>
+
+<main id="view" tabindex="-1"></main>
+
+<nav class="bottom-nav" aria-label="App">
+  <a href="#discover" aria-current="page"><span data-ic="compass"></span><span data-i18n="nav_disc">Discover</span></a>
+  <a href="#" data-soon><span data-ic="heart"></span><span data-i18n="nav_fav">Favourites</span></a>
+  <a href="#" data-soon><span data-ic="receipt"></span><span data-i18n="nav_orders">Orders</span></a>
+  <a href="#" data-soon><span data-ic="user"></span><span data-i18n="nav_me">Me</span></a>
+</nav>
+<button class="demo-btn" id="demo-btn" type="button" data-i18n="demo">Prototype states</button>
+<div id="layer"></div>
+
+<script src="assets/common.js" charset="utf-8"></script>
+<script>
+(function () {
+  "use strict";
+  const { t, n, tk, icon } = B;
+  B.add({
+    pick_near: "Bags near", area_now: "Dhanmondi 27", nav_disc: "Discover", nav_fav: "Favourites", nav_orders: "Orders", nav_me: "Me",
+    offline: "You're offline. Showing bags from 7:32 PM. Reserving needs a connection.", demo: "Prototype states",
+    d_h: "Tonight's bags", list: "List", map: "Map", sort_by: "Sort", s_soon: "Pickup soon", s_near: "Nearest", s_cheap: "Cheapest", s_top: "Top rated",
+    f_now: "Pickup within 1 h", f_halal: "Halal", f_cheap: "Under ৳150", filters: "Filters", results: "{n} bags", map_legend: "Prices shown are tonight's bag price",
+    e_none_h: "Nothing nearby right now", e_none_p: "Most shops list after 6 PM. Want a ping when they do?", e_notify: "Notify me", e_widen: "Show up to 10 km", e_clear: "Clear filters",
+    e_filter_h: "No bags match these filters", e_filter_p: "Try removing a filter or two.",
+    back: "Back", share: "Share", typical: "Typical contents", photos_note: "Photos from past bags. Yours will be a surprise.",
+    worth: "Worth at least {v}", d_expect: "What to expect", d_items: "Usually inside", d_cat: "Category", d_best: "Best before",
+    d_pickup: "Pickup", d_today: "Today", opens_in: "Pickup opens in {d}", open_now: "Open now · closes in {d}", closed: "Pickup closed",
+    d_allergens: "Allergens", d_allergen_note: "May contain other allergens. Ask the shop if unsure.", no_allergens: "No common allergens listed",
+    al_gluten: "Gluten", al_dairy: "Dairy", al_egg: "Egg", al_nuts: "Nuts",
+    d_how: "How to pick up", d_where: "Where", directions: "Get directions", call: "Call shop",
+    d_hygiene: "Hygiene & licence", d_lic: "Trade licence", d_checked: "Last checked", d_checked_v: "12 Oct 2026, in person", d_hyg_note: "Bachao visited this shop and checked its licence and kitchen before approving it.",
+    d_reviews: "Reviews", r_quality: "Food quality", r_qty: "Quantity", r_staff: "Staff",
+    notify_shop: "Notify me when this shop lists", notify_sub: "Usually lists around 6 PM",
+    reserve: "Reserve", reserve_sub: "Free cancellation up to 2 h before pickup",
+    sold_h: "All gone for tonight!", sold_p: "These shops nearby still have bags.",
+    co_h: "Checkout", co_qty: "How many bags?", co_max: "Max {m} per person", co_pay: "Pay with",
+    pm_bkash: "bKash", pm_bkash_s: "Last used · 01•••• ••482", pm_nagad: "Nagad", pm_nagad_s: "Pay with your Nagad wallet", pm_card: "Card", pm_card_s: "Visa, Mastercard, Amex", pm_cash: "Pay at pickup", pm_cash_s: "First order only",
+    cash_rule: "First order only. If you don't pick up, you'll need to pay online for future orders.",
+    co_bag: "Surprise Bag × {q}", co_fee: "Service fee", co_free: "Free", co_total: "Total", co_saving: "You save {v}",
+    co_terms: "Surprise Bags can't be refunded if you change your mind, but you always get your money back if the shop cancels or the food is unsafe.",
+    pay_btn: "Pay {v} with {m}", pay_cash_btn: "Reserve, pay {v} at pickup", paying: "Waiting for {m}…",
+    fail_h: "{m} payment didn't go through", fail_p: "No money was taken. Your bag is held for 5 minutes. Try again or pick another method.", retry: "Try again",
+    off_pay: "You're offline. Connect to reserve this bag.",
+    otp_h: "What's your phone number?", otp_p: "We'll text you a 6-digit code. We only use your number for your orders.", phone: "Phone number", send_code: "Send code",
+    otp_h2: "Enter the code", otp_p2: "Sent to +880 {p}.", otp_auto: "Code filled in from SMS", otp_resend: "Resend in 0:{s}", verify: "Verify & continue", change_no: "Change number",
+    phone_err: "Enter the 10 digits after +880, starting with 1.",
+    ok_h: "You're all set!", ok_p: "Your bag at {s} is reserved.", show_code: "Show this at the counter", order_no: "Order {o}",
+    pickup_in: "Pickup opens in", pickup_open: "Pickup open · closes in", bright: "Turn your screen brightness up so the shop can scan it.",
+    add_rem: "Remind me 30 min before", cancel_order: "Cancel order", cancel_note: "Free cancellation until {t}",
+    shop_phone: "Shop phone",
+    soon: "Not part of this prototype yet", copied: "Copied", demo_h: "Prototype states", demo_p: "Switch these to see empty, offline and error screens.",
+    st_normal: "Normal", st_empty: "No bags nearby", st_offline: "Offline", st_fail: "Next payment fails", close: "Close", apply: "Apply",
+    fl_h: "Filters", fl_dist: "Distance", fl_price: "Max price", fl_cat: "Category", up_to: "Up to {v}"
+  }, {
+    pick_near: "কাছের ব্যাগ", area_now: "ধানমন্ডি ২৭", nav_disc: "খুঁজুন", nav_fav: "পছন্দের", nav_orders: "অর্ডার", nav_me: "আমি",
+    offline: "আপনি অফলাইনে আছেন। সন্ধ্যা ৭:৩২-এর তথ্য দেখানো হচ্ছে। রিজার্ভ করতে ইন্টারনেট লাগবে।", demo: "প্রোটোটাইপ অবস্থা",
+    d_h: "আজ রাতের ব্যাগ", list: "তালিকা", map: "ম্যাপ", sort_by: "সাজান", s_soon: "শীঘ্রই পিকআপ", s_near: "সবচেয়ে কাছে", s_cheap: "সবচেয়ে কম দাম", s_top: "সেরা রেটিং",
+    f_now: "১ ঘণ্টার মধ্যে পিকআপ", f_halal: "হালাল", f_cheap: "৳১৫০-এর নিচে", filters: "ফিল্টার", results: "{n}টি ব্যাগ", map_legend: "দেখানো দাম আজ রাতের ব্যাগের দাম",
+    e_none_h: "এই মুহূর্তে কাছাকাছি কিছু নেই", e_none_p: "বেশিরভাগ দোকান সন্ধ্যা ৬টার পর ব্যাগ দেয়। দিলেই জানিয়ে দেব?", e_notify: "জানিয়ে দিন", e_widen: "১০ কিমি পর্যন্ত দেখুন", e_clear: "ফিল্টার মুছুন",
+    e_filter_h: "এই ফিল্টারে কোনো ব্যাগ নেই", e_filter_p: "এক-দুটি ফিল্টার সরিয়ে দেখুন।",
+    back: "ফিরে যান", share: "শেয়ার", typical: "সাধারণত যা থাকে", photos_note: "আগের ব্যাগের ছবি। আপনারটা হবে সারপ্রাইজ।",
+    worth: "অন্তত {v} মূল্যের", d_expect: "কী আশা করবেন", d_items: "সাধারণত থাকে", d_cat: "ধরন", d_best: "ভালো থাকবে",
+    d_pickup: "পিকআপ", d_today: "আজ", opens_in: "পিকআপ শুরু {d} পর", open_now: "এখন খোলা · বন্ধ হবে {d} পর", closed: "পিকআপ বন্ধ",
+    d_allergens: "অ্যালার্জেন", d_allergen_note: "অন্য অ্যালার্জেনও থাকতে পারে। নিশ্চিত না হলে দোকানে জিজ্ঞেস করুন।", no_allergens: "সাধারণ কোনো অ্যালার্জেন নেই",
+    al_gluten: "গ্লুটেন", al_dairy: "দুধ", al_egg: "ডিম", al_nuts: "বাদাম",
+    d_how: "কীভাবে নেবেন", d_where: "ঠিকানা", directions: "পথ দেখুন", call: "দোকানে ফোন",
+    d_hygiene: "পরিচ্ছন্নতা ও লাইসেন্স", d_lic: "ট্রেড লাইসেন্স", d_checked: "সর্বশেষ যাচাই", d_checked_v: "১২ অক্টোবর ২০২৬, সরাসরি গিয়ে", d_hyg_note: "অনুমোদনের আগে বাঁচাও দল দোকানে গিয়ে লাইসেন্স আর রান্নাঘর যাচাই করেছে।",
+    d_reviews: "রিভিউ", r_quality: "খাবারের মান", r_qty: "পরিমাণ", r_staff: "ব্যবহার",
+    notify_shop: "এই দোকান ব্যাগ দিলে জানান", notify_sub: "সাধারণত সন্ধ্যা ৬টার দিকে দেয়",
+    reserve: "রিজার্ভ করুন", reserve_sub: "পিকআপের ২ ঘণ্টা আগে পর্যন্ত ফ্রি বাতিল",
+    sold_h: "আজ রাতের সব শেষ!", sold_p: "কাছের এই দোকানগুলোতে এখনও ব্যাগ আছে।",
+    co_h: "চেকআউট", co_qty: "কয়টি ব্যাগ?", co_max: "জনপ্রতি সর্বোচ্চ {m}টি", co_pay: "পেমেন্ট পদ্ধতি",
+    pm_bkash: "বিকাশ", pm_bkash_s: "সর্বশেষ ব্যবহৃত · ০১•••• ••৪৮২", pm_nagad: "নগদ", pm_nagad_s: "আপনার নগদ ওয়ালেট দিয়ে", pm_card: "কার্ড", pm_card_s: "ভিসা, মাস্টারকার্ড, অ্যামেক্স", pm_cash: "দোকানে গিয়ে পেমেন্ট", pm_cash_s: "শুধু প্রথম অর্ডারে",
+    cash_rule: "শুধু প্রথম অর্ডারে। না নিতে এলে পরের অর্ডারগুলো অনলাইনে পেমেন্ট করতে হবে।",
+    co_bag: "সারপ্রাইজ ব্যাগ × {q}", co_fee: "সার্ভিস চার্জ", co_free: "ফ্রি", co_total: "মোট", co_saving: "আপনার সাশ্রয় {v}",
+    co_terms: "মত বদলালে সারপ্রাইজ ব্যাগের টাকা ফেরত হয় না, তবে দোকান বাতিল করলে বা খাবার অনিরাপদ হলে সবসময় টাকা ফেরত পাবেন।",
+    pay_btn: "{m} দিয়ে {v} দিন", pay_cash_btn: "রিজার্ভ করুন, দোকানে {v} দিন", paying: "{m}-এর অপেক্ষায়…",
+    fail_h: "{m} পেমেন্ট হয়নি", fail_p: "আপনার কোনো টাকা কাটা হয়নি। ব্যাগটি ৫ মিনিট রাখা আছে। আবার চেষ্টা করুন বা অন্য পদ্ধতি বেছে নিন।", retry: "আবার চেষ্টা করুন",
+    off_pay: "আপনি অফলাইনে। ব্যাগটি রিজার্ভ করতে ইন্টারনেটে যুক্ত হন।",
+    otp_h: "আপনার ফোন নম্বর কত?", otp_p: "আমরা ৬ সংখ্যার একটি কোড পাঠাব। নম্বরটি শুধু আপনার অর্ডারের জন্য ব্যবহার হবে।", phone: "ফোন নম্বর", send_code: "কোড পাঠান",
+    otp_h2: "কোডটি লিখুন", otp_p2: "+৮৮০ {p}-এ পাঠানো হয়েছে।", otp_auto: "এসএমএস থেকে কোড বসানো হয়েছে", otp_resend: "আবার পাঠান ০:{s} পর", verify: "যাচাই করে এগিয়ে যান", change_no: "নম্বর বদলান",
+    phone_err: "+৮৮০-এর পরের ১০টি সংখ্যা লিখুন, ১ দিয়ে শুরু।",
+    ok_h: "সব ঠিক আছে!", ok_p: "{s}-এ আপনার ব্যাগ রিজার্ভ হয়েছে।", show_code: "কাউন্টারে এটি দেখান", order_no: "অর্ডার {o}",
+    pickup_in: "পিকআপ শুরু হতে বাকি", pickup_open: "পিকআপ চলছে · বন্ধ হতে বাকি", bright: "স্ক্রিনের উজ্জ্বলতা বাড়িয়ে দিন, যাতে দোকান স্ক্যান করতে পারে।",
+    add_rem: "৩০ মিনিট আগে মনে করিয়ে দিন", cancel_order: "অর্ডার বাতিল", cancel_note: "{t} পর্যন্ত ফ্রি বাতিল",
+    shop_phone: "দোকানের ফোন",
+    soon: "এই প্রোটোটাইপে এখনও নেই", copied: "কপি হয়েছে", demo_h: "প্রোটোটাইপ অবস্থা", demo_p: "খালি, অফলাইন আর ত্রুটির স্ক্রিন দেখতে এগুলো বদলান।",
+    st_normal: "স্বাভাবিক", st_empty: "কাছে কোনো ব্যাগ নেই", st_offline: "অফলাইন", st_fail: "পরের পেমেন্ট ব্যর্থ হবে", close: "বন্ধ", apply: "প্রয়োগ করুন",
+    fl_h: "ফিল্টার", fl_dist: "দূরত্ব", fl_price: "সর্বোচ্চ দাম", fl_cat: "ধরন", up_to: "{v} পর্যন্ত"
+  });
+
+  /* ---------- state ---------- */
+  const S = {
+    mode: "list", sort: "soon", chips: new Set(), maxDist: 6, maxPrice: 400, selected: 1,
+    demo: "normal", failNext: false, firstOrder: true, loggedIn: false, phone: "",
+    qty: 1, pay: "bkash", payState: "idle", order: null
+  };
+  const PAY_NAMES = { bkash: "pm_bkash", nagad: "pm_nagad", card: "pm_card", cash: "pm_cash" };
+  const view = document.getElementById("view");
+  const layer = document.getElementById("layer");
+  const bagById = (id) => B.bags.find((b) => b.id === +id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+  function toast(msg) {
+    document.querySelectorAll(".toast").forEach((t) => t.remove());
+    const el = document.createElement("div");
+    el.className = "toast"; el.setAttribute("role", "status"); el.textContent = msg;
+    document.body.appendChild(el); setTimeout(() => el.remove(), 3000);
+  }
+  function countdownHtml(b) {
+    const now = B.nowMin();
+    if (now < b.start) return '<span class="countdown later">' + icon("clock") + t("opens_in", { d: B.dur(b.start - now) }) + "</span>";
+    if (now < b.end) return '<span class="countdown">' + icon("clock") + t("open_now", { d: B.dur(b.end - now) }) + "</span>";
+    return '<span class="countdown later">' + t("closed") + "</span>";
+  }
+
+  /* ---------- map ---------- */
+  function mapBase() {
+    // Stylised Dhaka: Dhanmondi Lake, Gulshan Lake, main roads.
+    return '<svg class="base" viewBox="0 0 100 125" preserveAspectRatio="none" aria-hidden="true">' +
+      '<rect width="100" height="125" fill="var(--map-land)"/>' +
+      '<path d="M70 0 C66 20 74 30 68 48 C64 60 72 70 70 125 L82 125 C84 80 78 62 82 48 C86 32 78 18 84 0Z" fill="var(--map-water)" opacity=".8"/>' +
+      '<path d="M32 38 C36 44 44 46 40 54 C36 62 44 70 40 78 C38 82 34 80 35 74 C37 66 30 60 34 52 C37 46 29 44 32 38Z" fill="var(--map-water)"/>' +
+      '<rect x="8" y="58" width="14" height="10" rx="2" fill="var(--map-park)"/><rect x="58" y="90" width="10" height="14" rx="2" fill="var(--map-park)"/>' +
+      '<g stroke="var(--map-road)" stroke-linecap="round" fill="none"><path d="M0 30 L100 22" stroke-width="2.6"/><path d="M0 70 L100 64" stroke-width="2.2"/><path d="M28 0 L22 125" stroke-width="2.6"/><path d="M50 0 L56 125" stroke-width="2"/><path d="M0 100 L100 108" stroke-width="1.6"/><path d="M8 0 L14 125" stroke-width="1.2"/><path d="M0 48 L60 44" stroke-width="1.2"/><path d="M90 0 L92 125" stroke-width="1.6"/></g>' +
+      '<g font-size="3.2" fill="var(--muted)" font-family="Hind Siliguri, sans-serif"><text x="30" y="88">' + (B.lang === "bn" ? "ধানমন্ডি লেক" : "Dhanmondi Lake") + '</text><text x="60" y="8">' + (B.lang === "bn" ? "গুলশান" : "Gulshan") + '</text><text x="2" y="20">' + (B.lang === "bn" ? "মোহাম্মদপুর" : "Mohammadpur") + "</text></g></svg>";
+  }
+
+  /* ---------- discover ---------- */
+  function filtered() {
+    if (S.demo === "empty") return [];
+    let list = B.bags.filter((b) => b.dist <= S.maxDist && b.price <= S.maxPrice);
+    const cats = ["bakery", "sweets", "meals", "grocery", "cake"].filter((c) => S.chips.has(c));
+    if (cats.length) list = list.filter((b) => cats.includes(b.cat));
+    if (S.chips.has("halal")) list = list.filter((b) => b.halal);
+    if (S.chips.has("cheap")) list = list.filter((b) => b.price < 150);
+    if (S.chips.has("now")) list = list.filter((b) => b.start - B.nowMin() <= 60 && b.end > B.nowMin());
+    const avail = (b) => b.left === 0 ? 1 : 0;
+    const by = { soon: (a, b) => a.start - b.start || a.dist - b.dist, near: (a, b) => a.dist - b.dist, cheap: (a, b) => a.price - b.price, top: (a, b) => b.rating - a.rating };
+    return list.sort((a, b) => avail(a) - avail(b) || by[S.sort](a, b));
+  }
+  const CHIPS = [["now", "f_now"], ["bakery", "cat_bakery"], ["sweets", "cat_sweets"], ["meals", "cat_meals"], ["cake", "cat_cake"], ["grocery", "cat_grocery"], ["halal", "f_halal"], ["cheap", "f_cheap"]];
+
+  function renderDiscover() {
+    document.body.classList.remove("no-nav");
+    const list = filtered();
+    const sel = list.find((b) => b.id === S.selected) || list[0];
+    if (sel) S.selected = sel.id;
+    const emptyAll = S.demo === "empty";
+    const empty = emptyAll
+      ? '<div class="empty">' + spot() + '<h2 class="t-h2">' + t("e_none_h") + "</h2><p>" + t("e_none_p") + '</p><div class="row-btns" style="justify-content:center"><button class="btn btn-primary" data-act="notify">' + icon("bell") + t("e_notify") + '</button><button class="btn btn-secondary" data-act="widen">' + t("e_widen") + "</button></div></div>"
+      : '<div class="empty">' + spot() + '<h2 class="t-h2">' + t("e_filter_h") + "</h2><p>" + t("e_filter_p") + '</p><button class="btn btn-secondary" data-act="clear">' + t("e_clear") + "</button></div>";
+
+    view.innerHTML = '<div class="wrap">' +
+      '<div class="disc-head"><div class="toolbar"><h1>' + t("d_h") + '</h1><div class="seg" role="group" aria-label="View"><button data-mode="list" aria-pressed="' + (S.mode === "list") + '">' + icon("list") + t("list") + '</button><button data-mode="map" aria-pressed="' + (S.mode === "map") + '">' + icon("map") + t("map") + "</button></div></div>" +
+      '<div class="chip-row"><button class="chip" id="filters-btn" aria-haspopup="dialog">' + icon("sliders") + t("filters") + '</button><div class="chips" role="group" aria-label="' + t("filters") + '">' +
+      CHIPS.map(([k, l]) => '<button class="chip" data-chip="' + k + '" aria-pressed="' + S.chips.has(k) + '"><span class="check">' + icon("check") + "</span>" + t(l) + "</button>").join("") + "</div></div>" +
+      '<div class="toolbar"><span class="count" aria-live="polite">' + t("results", { n: n(list.length) }) + '</span><label class="sort">' + t("sort_by") + ' <select id="sort">' +
+      [["soon", "s_soon"], ["near", "s_near"], ["cheap", "s_cheap"], ["top", "s_top"]].map(([v, l]) => '<option value="' + v + '"' + (S.sort === v ? " selected" : "") + ">" + t(l) + "</option>").join("") + "</select></label></div></div>" +
+      '<div class="disc-body' + (S.mode === "map" ? " show-map" : "") + '"><section class="list-pane" aria-label="' + t("list") + '">' +
+      (list.length ? '<div class="results">' + list.map((b) => B.bagCard(b, "#bag-" + b.id)).join("") + "</div>" : empty) +
+      '</section><section class="map-pane" aria-label="' + t("map") + '"><div class="map">' + mapBase() + '<span class="map-legend">' + t("map_legend") + "</span>" +
+      '<span class="you" style="left:36%;top:52%" title="You"></span>' +
+      list.map((b) => '<button class="pin' + (b.id === S.selected ? " sel" : "") + (b.left === 0 ? " out" : "") + '" style="left:' + b.x + "%;top:" + b.y + '%" data-pin="' + b.id + '" aria-label="' + esc(B.shopName(b)) + ", " + tk(b.price) + '">' + tk(b.price) + "</button>").join("") +
+      (sel ? '<div class="map-card">' + B.bagCard(sel, "#bag-" + sel.id) + "</div>" : "") +
+      "</div></section></div></div>";
+  }
+  function spot() {
+    return '<svg class="spot" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="56" fill="var(--haldi-soft)"/><path d="M34 50h52l-4 46a6 6 0 0 1-6 5H44a6 6 0 0 1-6-5z" fill="var(--primary)"/><path d="M46 50a14 14 0 0 1 28 0" fill="none" stroke="var(--primary)" stroke-width="5" stroke-linecap="round"/><circle cx="60" cy="28" r="4" fill="var(--haldi)"/><path d="M50 78q10-7 20 0" fill="none" stroke="var(--haldi)" stroke-width="4" stroke-linecap="round"/></svg>';
+  }
+
+  /* ---------- detail ---------- */
+  function renderDetail(b) {
+    document.body.classList.add("no-nav");
+    if (b.left === 0) return renderSoldOut(b);
+    const allergens = b.allergens.length ? b.allergens.map((a) => '<span class="badge badge-best">' + t("al_" + a) + "</span>").join("") : '<span class="t-small t-muted">' + t("no_allergens") + "</span>";
+    const reviews = [
+      { who: B.lang === "bn" ? "সাদিয়া" : "Sadia", s: 5, d: B.lang === "bn" ? "২ দিন আগে" : "2 days ago", tx: B.lang === "bn" ? "অনেক কিছু ছিল, সব তাজা। দুই দিন নাস্তা হয়ে গেল।" : "So much in it and all fresh. Breakfast sorted for two days." },
+      { who: B.lang === "bn" ? "রাফি" : "Rafi", s: 4, d: B.lang === "bn" ? "৫ দিন আগে" : "5 days ago", tx: B.lang === "bn" ? "ভালো ছিল, তবে কাউন্টারে একটু অপেক্ষা করতে হয়েছে।" : "Good bag, had to wait a few minutes at the counter though." },
+      { who: B.lang === "bn" ? "মিম" : "Mim", s: 5, d: B.lang === "bn" ? "১ সপ্তাহ আগে" : "1 week ago", tx: B.lang === "bn" ? "স্টাফরা খুব ভদ্র। আবার নেব।" : "Staff were lovely. Will order again." }
+    ];
+    const scoreRow = (k, v) => '<div class="score"><span>' + t(k) + '</span><span class="bar"><i style="width:' + (v / 5 * 100) + '%"></i></span><b class="num">' + n(v.toFixed(1)) + "</b></div>";
+    const buy = '<div class="buy-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">' + B.priceHtml(b) + B.leftBadge(b) + "</div>" +
+      '<p class="t-small t-muted">' + t("worth", { v: tk(b.was) }) + "</p>" +
+      '<div class="pickup-card"><span class="t-small t-muted">' + t("d_pickup") + " · " + t("d_today") + '</span><span class="big num">' + B.windowText(b.start, b.end) + "</span>" + countdownHtml(b) +
+      '<span class="badge badge-best' + (B.bestSoon(b) ? " soon" : "") + '" style="justify-self:start">' + icon("clock") + B.bestText(b) + "</span></div>" +
+      '<a class="btn btn-primary btn-lg btn-block cta-desk" href="#checkout-' + b.id + '">' + icon("bag") + t("reserve") + '</a><p class="fine cta-desk">' + t("reserve_sub") + "</p>" +
+      '<div class="toggle-row"><div><b style="font-size:15px">' + t("notify_shop") + '</b><div class="fine">' + t("notify_sub") + '</div></div><label class="switch"><input type="checkbox" id="notify-shop" aria-label="' + t("notify_shop") + '"><span></span></label></div></div>';
+
+    view.innerHTML = '<div class="wrap">' +
+      '<div class="back-row"><a class="btn btn-ghost" href="#discover" style="padding-left:8px">' + icon("back") + t("back") + '</a><button class="icon-btn fav" aria-pressed="false" data-fav="' + b.id + '" aria-label="' + t("fav") + '">' + icon("heart") + "</button></div>" +
+      '<div class="detail"><div class="d-main">' +
+      '<div><div class="gallery" id="gallery" aria-label="' + t("typical") + '">' + [0, 10, 20].map((o, i) => '<div class="photo">' + B.foodArt(b.cat, b.id + o) + '<span class="tag">' + t("typical") + " · " + n(i + 1) + "/" + n(3) + "</span></div>").join("") + '</div><div class="dots" aria-hidden="true"><span class="on"></span><span></span><span></span></div><p class="fine" style="text-align:center;margin-top:4px">' + t("photos_note") + "</p></div>" +
+      '<div class="d-title"><h1 class="t-h1">' + B.shopName(b) + '</h1><div class="row"><span class="rating">' + B.starIcon + n(b.rating) + ' <span class="count">(' + n(b.reviews) + ")</span></span><span class=\"t-small t-muted\">· " + n(b.dist) + " " + t("km") + " · " + B.areaName(b) + '</span></div><div class="row"><span class="badge badge-verified">' + icon("shield") + t("verified") + "</span>" + (b.halal ? '<span class="badge badge-halal">' + icon("moon") + t("halal") + "</span>" : "") + '<span class="badge badge-best">' + t("cat_" + b.cat) + "</span></div></div>" +
+      '<div class="side" id="side-mobile"></div>' +
+      '<div class="block"><h2>' + t("d_expect") + '</h2><dl class="kv"><dt>' + t("d_items") + "</dt><dd>" + (B.lang === "bn" ? b.itemsBn : b.items) + "</dd><dt>" + t("d_cat") + "</dt><dd>" + t("cat_" + b.cat) + "</dd><dt>" + t("d_best") + "</dt><dd>" + B.bestText(b) + "</dd></dl></div>" +
+      '<div class="block"><h2>' + t("d_allergens") + '</h2><div class="allergens">' + allergens + '</div><p class="fine">' + t("d_allergen_note") + "</p></div>" +
+      '<div class="block"><h2>' + t("d_how") + "</h2><p>" + (B.lang === "bn" ? b.pickupBn : b.pickup) + '</p><div class="mini-map">' + mapBase() + '<span class="pin sel">' + tk(b.price) + '</span></div><dl class="kv"><dt>' + t("d_where") + "</dt><dd>" + (B.lang === "bn" ? b.addrBn : b.addr) + '</dd></dl><div class="row-btns"><a class="btn btn-secondary" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(b.addr + ", Dhaka") + '" target="_blank" rel="noopener">' + icon("nav") + t("directions") + "</a></div></div>" +
+      '<div class="block"><h2>' + t("d_hygiene") + '</h2><dl class="kv"><dt>' + t("d_lic") + '</dt><dd class="num">' + b.licence + "</dd><dt>" + t("d_checked") + "</dt><dd>" + t("d_checked_v") + '</dd></dl><p class="t-small t-muted">' + t("d_hyg_note") + "</p></div>" +
+      '<div class="block"><h2>' + t("d_reviews") + ' <span class="rating" style="vertical-align:middle">' + B.starIcon + n(b.rating) + ' <span class="count">(' + n(b.reviews) + ')</span></span></h2><div class="scores">' + scoreRow("r_quality", b.q) + scoreRow("r_qty", b.qty) + scoreRow("r_staff", b.staff) + "</div><div>" +
+      reviews.map((r) => '<div class="review"><div class="who"><b>' + r.who + "</b><span>" + "★".repeat(r.s) + " · " + r.d + "</span></div><p>" + r.tx + "</p></div>").join("") + "</div></div>" +
+      '</div><aside class="side" id="side-desk"></aside></div></div>' +
+      '<div class="cta-bar"><div>' + B.priceHtml(b) + '<div class="cta-sub">' + B.windowText(b.start, b.end) + '</div></div><a class="btn btn-primary btn-lg" href="#checkout-' + b.id + '">' + t("reserve") + "</a></div>";
+
+    const target = matchMedia("(min-width: 900px)").matches ? "side-desk" : "side-mobile";
+    document.getElementById(target).innerHTML = buy;
+    const g = document.getElementById("gallery"), dots = view.querySelectorAll(".dots span");
+    g.addEventListener("scroll", () => { const i = Math.round(g.scrollLeft / g.clientWidth); dots.forEach((d, k) => d.classList.toggle("on", k === i)); }, { passive: true });
+  }
+  function renderSoldOut(b) {
+    const alts = B.bags.filter((x) => x.id !== b.id && x.left > 0).sort((x, y) => x.dist - y.dist).slice(0, 3);
+    view.innerHTML = '<div class="wrap"><div class="back-row"><a class="btn btn-ghost" href="#discover" style="padding-left:8px">' + icon("back") + t("back") + "</a></div>" +
+      '<div class="empty">' + spot() + '<p class="eyebrow">' + B.shopName(b) + '</p><h1 class="t-h1">' + t("sold_h") + "</h1><p>" + t("sold_p") + "</p></div>" +
+      '<div class="results">' + alts.map((x) => B.bagCard(x, "#bag-" + x.id)).join("") + "</div></div>";
+  }
+
+  /* ---------- checkout ---------- */
+  function renderCheckout(b) {
+    document.body.classList.add("no-nav");
+    if (b.left === 0) return renderSoldOut(b);
+    const max = Math.min(b.left, 3);
+    S.qty = Math.min(S.qty, max);
+    if (!S.firstOrder && S.pay === "cash") S.pay = "bkash";
+    const total = b.price * S.qty, saving = (b.was - b.price) * S.qty;
+    const mName = t(PAY_NAMES[S.pay]);
+    const opt = (k, color, label, sub, extra) => '<label class="pay-opt"><input type="radio" name="pay" value="' + k + '"' + (S.pay === k ? " checked" : "") + (extra || "") + '><span class="logo-box" style="background:' + color + '">' + label + '</span><span class="t"><b>' + t(PAY_NAMES[k]) + "</b><small>" + t(sub) + '</small></span><span class="radio"></span></label>';
+    const busy = S.payState === "paying";
+    const btnLabel = busy ? '<span class="spin" aria-hidden="true"></span>' + t("paying", { m: mName }) : S.pay === "cash" ? t("pay_cash_btn", { v: tk(total) }) : t("pay_btn", { v: tk(total), m: mName });
+
+    view.innerHTML = '<div class="wrap"><div class="back-row"><a class="btn btn-ghost" href="#bag-' + b.id + '" style="padding-left:8px">' + icon("back") + t("back") + "</a></div>" +
+      '<div class="narrow"><h1 class="t-h1">' + t("co_h") + "</h1>" +
+      (S.payState === "failed" ? '<div class="alert" role="alert">' + icon("alert") + "<div><b>" + t("fail_h", { m: mName }) + "</b><p>" + t("fail_p") + "</p></div></div>" : "") +
+      (S.demo === "offline" ? '<div class="alert" role="alert">' + icon("wifioff") + "<div><b>" + t("off_pay") + "</b></div></div>" : "") +
+      '<div class="summary"><div class="photo">' + B.foodArt(b.cat, b.id) + '</div><div><b class="t-h3">' + B.shopName(b) + '</b><span class="t-small t-muted">' + t("d_pickup") + " · " + B.windowText(b.start, b.end) + '</span><span class="badge badge-best' + (B.bestSoon(b) ? " soon" : "") + '" style="justify-self:start">' + icon("clock") + B.bestText(b) + "</span></div></div>" +
+      '<div class="toggle-row"><div><b>' + t("co_qty") + '</b><div class="fine">' + t("co_max", { m: n(max) }) + '</div></div><div class="stepper"><button type="button" data-qty="-1" aria-label="−"' + (S.qty <= 1 ? " disabled" : "") + ">" + icon("minus") + '</button><output class="num" aria-live="polite">' + n(S.qty) + '</output><button type="button" data-qty="1" aria-label="+"' + (S.qty >= max ? " disabled" : "") + ">" + icon("plus") + "</button></div></div>" +
+      '<fieldset class="pay-list"><legend class="t-h3" style="margin-bottom:8px">' + t("co_pay") + "</legend>" +
+      opt("bkash", "#C8195E", "bKash", "pm_bkash_s") + opt("nagad", "#D9480F", "Nagad", "pm_nagad_s") + opt("card", "#2B3A55", icon("card"), "pm_card_s") +
+      (S.firstOrder ? opt("cash", "#2F7D4F", icon("cash"), "pm_cash_s") : "") + "</fieldset>" +
+      (S.pay === "cash" ? '<div class="rule">' + icon("info") + "<span>" + t("cash_rule") + "</span></div>" : "") +
+      '<div class="totals"><div class="line"><span>' + t("co_bag", { q: n(S.qty) }) + '</span><span class="num">' + tk(total) + '</span></div><div class="line"><span>' + t("co_fee") + "</span><span>" + t("co_free") + '</span></div><div class="line total"><span>' + t("co_total") + '</span><span class="num">' + tk(total) + '</span></div><div class="line saving"><span>' + t("co_saving", { v: tk(saving) }) + "</span></div></div>" +
+      '<p class="fine">' + t("co_terms") + "</p>" +
+      '<button class="btn btn-primary btn-lg btn-block" id="pay" type="button"' + (busy ? ' aria-disabled="true"' : "") + (S.demo === "offline" ? " disabled" : "") + ">" + (S.payState === "failed" ? t("retry") : btnLabel) + '</button><button type="button" class="demo-inline" data-act="demo">' + t("demo") + "</button></div></div>";
+  }
+  function startPay(b) {
+    if (S.payState === "paying" || S.demo === "offline") return;
+    if (!S.loggedIn) return openOtp(() => startPay(b));
+    S.payState = "paying"; renderCheckout(b);
+    setTimeout(() => {
+      if (S.failNext) { S.failNext = false; S.payState = "failed"; setDemoRadio(); renderCheckout(b); document.querySelector(".alert")?.scrollIntoView({ block: "center" }); return; }
+      S.payState = "idle";
+      S.order = { bag: b.id, qty: S.qty, code: String(1000 + Math.floor(Math.random() * 9000)), no: "BCH-" + (20000 + Math.floor(Math.random() * 9999)), pay: S.pay };
+      S.firstOrder = false;
+      location.hash = "order-" + b.id;
+    }, 1400);
+  }
+
+  /* ---------- OTP sheet ---------- */
+  function openOtp(done) {
+    let step = "phone", secs = 28, timer;
+    const close = () => { clearInterval(timer); layer.innerHTML = ""; };
+    function draw() {
+      if (step === "phone") {
+        layer.innerHTML = '<div class="scrim" data-close><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="otp-h"><div class="handle"></div><div class="sheet-head"><h2 class="t-h2" id="otp-h">' + t("otp_h") + '</h2><button class="icon-btn" data-close aria-label="' + t("close") + '">' + icon("x") + "</button></div><p class=\"t-muted\">" + t("otp_p") + '</p><form id="ph-form" class="field" novalidate><label for="ph">' + t("phone") + '</label><div class="phone-row"><span class="cc">+880</span><input class="input" id="ph" inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="1712 345678" value="' + S.phone + '"></div><span class="helper err" id="ph-err" hidden>' + icon("alert") + t("phone_err") + '</span><button class="btn btn-primary btn-lg btn-block" style="margin-top:8px">' + t("send_code") + "</button></form></div></div>";
+        const ph = document.getElementById("ph"); ph.focus();
+        document.getElementById("ph-form").addEventListener("submit", (e) => {
+          e.preventDefault();
+          const v = ph.value.replace(/\D/g, "");
+          if (!/^1\d{9}$/.test(v)) { ph.setAttribute("aria-invalid", "true"); document.getElementById("ph-err").hidden = false; return; }
+          S.phone = v; step = "otp"; draw();
+        });
+      } else {
+        layer.innerHTML = '<div class="scrim" data-close><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="otp-h"><div class="handle"></div><div class="sheet-head"><h2 class="t-h2" id="otp-h">' + t("otp_h2") + '</h2><button class="icon-btn" data-close aria-label="' + t("close") + '">' + icon("x") + "</button></div><p class=\"t-muted\">" + t("otp_p2", { p: n(S.phone) }) + '</p><form id="otp-form" class="field"><div class="otp">' + [0, 1, 2, 3, 4, 5].map((i) => '<input inputmode="numeric" maxlength="1" autocomplete="' + (i ? "off" : "one-time-code") + '" aria-label="Digit ' + (i + 1) + '">').join("") + '</div><span class="helper" id="otp-note"></span><button class="btn btn-primary btn-lg btn-block" style="margin-top:8px">' + t("verify") + '</button><button type="button" class="btn btn-ghost" id="chg">' + t("change_no") + "</button></form></div></div>";
+        const boxes = [...layer.querySelectorAll(".otp input")], note = document.getElementById("otp-note");
+        boxes.forEach((bx, i) => {
+          bx.addEventListener("input", () => { bx.value = bx.value.replace(/\D/g, "").slice(-1); if (bx.value && boxes[i + 1]) boxes[i + 1].focus(); });
+          bx.addEventListener("keydown", (e) => { if (e.key === "Backspace" && !bx.value && boxes[i - 1]) boxes[i - 1].focus(); });
+          bx.addEventListener("paste", (e) => { const d = (e.clipboardData.getData("text") || "").replace(/\D/g, "").slice(0, 6); if (d) { e.preventDefault(); d.split("").forEach((c, k) => { if (boxes[k]) boxes[k].value = c; }); } });
+        });
+        boxes[0].focus();
+        timer = setInterval(() => { secs = Math.max(0, secs - 1); note.textContent = t("otp_resend", { s: n(String(secs).padStart(2, "0")) }); }, 1000);
+        // Simulates Android WebOTP auto-read.
+        setTimeout(() => { if (!document.body.contains(boxes[0])) return; "482193".split("").forEach((c, k) => { boxes[k].value = c; }); note.textContent = t("otp_auto"); }, 1500);
+        document.getElementById("chg").addEventListener("click", () => { clearInterval(timer); step = "phone"; draw(); });
+        document.getElementById("otp-form").addEventListener("submit", (e) => { e.preventDefault(); if (boxes.some((x) => !x.value)) { boxes.find((x) => !x.value).focus(); return; } S.loggedIn = true; close(); done(); });
+      }
+      layer.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", (e) => { if (e.target === el || el.classList.contains("icon-btn")) close(); }));
+    }
+    draw();
+  }
+
+  /* ---------- order ---------- */
+  function renderOrder(b) {
+    document.body.classList.remove("no-nav");
+    const o = S.order || { bag: b.id, qty: 1, code: "4821", no: "BCH-20417", pay: "bkash" };
+    const shopPhone = "+880 1711-" + (300000 + b.id * 1234);
+    view.innerHTML = '<div class="wrap"><div class="narrow" style="padding-top:var(--s4)">' +
+      '<div class="done-head"><span class="tick">' + icon("check") + '</span><h1 class="t-h1">' + t("ok_h") + '</h1><p class="t-muted">' + t("ok_p", { s: B.shopName(b) }) + "</p></div>" +
+      '<div class="ticket"><div class="top"><span class="eyebrow">' + t("show_code") + '</span><div class="qr-box"><canvas id="qr" width="29" height="29" aria-label="QR code ' + o.code + '"></canvas></div><div class="code num" aria-label="Pickup code ' + o.code.split("").join(" ") + '">' + n(o.code) + '</div><span class="t-small t-muted">' + t("order_no", { o: o.no }) + " · " + t("co_bag", { q: n(o.qty) }) + '</span></div><div class="tear" aria-hidden="true"></div>' +
+      '<div class="bottom"><div><span class="t-small t-muted" id="cd-label"></span><div class="big-count num" id="cd" aria-live="polite"></div></div>' +
+      '<dl class="kv"><dt>' + t("d_pickup") + '</dt><dd class="num">' + B.windowText(b.start, b.end) + "</dd><dt>" + t("d_where") + "</dt><dd>" + B.shopName(b) + ", " + (B.lang === "bn" ? b.addrBn : b.addr) + "</dd><dt>" + t("shop_phone") + '</dt><dd><span class="phone-num num">' + shopPhone + "</span></dd></dl>" +
+      '<div class="row-btns"><a class="btn btn-primary" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(b.addr + ", Dhaka") + '" target="_blank" rel="noopener">' + icon("nav") + t("directions") + '</a><button class="btn btn-secondary" id="call" data-phone="' + shopPhone + '">' + icon("phone") + t("call") + "</button></div>" +
+      '<p class="tip">' + icon("sun") + t("bright") + "</p></div></div>" +
+      '<div class="toggle-row"><b>' + t("add_rem") + '</b><label class="switch"><input type="checkbox" id="rem" checked aria-label="' + t("add_rem") + '"><span></span></label></div>' +
+      '<button class="btn btn-ghost" id="cancel" style="justify-self:center;color:var(--error)">' + t("cancel_order") + '</button><p class="fine" style="text-align:center;margin-top:-16px">' + t("cancel_note", { t: B.clock(b.start - 120) }) + "</p></div></div>";
+    drawQR(o.code);
+    tickOrder(b);
+  }
+  function tickOrder(b) {
+    const lbl = document.getElementById("cd-label"), cd = document.getElementById("cd");
+    if (!cd) return;
+    const now = B.nowMin();
+    if (now < b.start) { lbl.textContent = t("pickup_in"); cd.textContent = B.dur(b.start - now); }
+    else if (now < b.end) { lbl.textContent = t("pickup_open"); cd.textContent = B.dur(b.end - now); }
+    else { lbl.textContent = ""; cd.textContent = t("closed"); }
+  }
+  function drawQR(code) {
+    // Visual stand-in for a real QR (production: encode the order token with a QR library).
+    const c = document.getElementById("qr"), x = c.getContext("2d"), N = 29, r = B.mulberry(+code);
+    x.fillStyle = "#FFFFFF"; x.fillRect(0, 0, N, N); x.fillStyle = "#1A1114";
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (r() > .52) x.fillRect(i, j, 1, 1);
+    [[0, 0], [N - 7, 0], [0, N - 7]].forEach(([a, b2]) => { x.fillStyle = "#FFFFFF"; x.fillRect(a - 1 < 0 ? a : a - 1, b2 - 1 < 0 ? b2 : b2 - 1, 9, 9); x.fillStyle = "#1A1114"; x.fillRect(a, b2, 7, 7); x.fillStyle = "#FFFFFF"; x.fillRect(a + 1, b2 + 1, 5, 5); x.fillStyle = "#1A1114"; x.fillRect(a + 2, b2 + 2, 3, 3); });
+  }
+
+  /* ---------- filters + demo sheets ---------- */
+  function openFilters() {
+    layer.innerHTML = '<div class="scrim" data-close><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="fl-h"><div class="handle"></div><div class="sheet-head"><h2 class="t-h2" id="fl-h">' + t("fl_h") + '</h2><button class="icon-btn" data-close aria-label="' + t("close") + '">' + icon("x") + "</button></div>" +
+      '<div class="range-row"><label for="fd"><span>' + t("fl_dist") + '</span><span id="fd-v"></span></label><input type="range" id="fd" min="1" max="10" value="' + S.maxDist + '"></div>' +
+      '<div class="range-row"><label for="fp"><span>' + t("fl_price") + '</span><span id="fp-v"></span></label><input type="range" id="fp" min="100" max="400" step="10" value="' + S.maxPrice + '"></div>' +
+      '<div><b>' + t("fl_cat") + '</b><div class="chips" style="flex-wrap:wrap;margin-top:8px">' + CHIPS.slice(1, 6).map(([k, l]) => '<button class="chip" data-fchip="' + k + '" aria-pressed="' + S.chips.has(k) + '"><span class="check">' + icon("check") + "</span>" + t(l) + "</button>").join("") + '<button class="chip" data-fchip="halal" aria-pressed="' + S.chips.has("halal") + '"><span class="check">' + icon("check") + "</span>" + icon("moon") + t("f_halal") + "</button></div></div>" +
+      '<div class="row-btns"><button class="btn btn-ghost" id="fl-clear">' + t("e_clear") + '</button><button class="btn btn-primary" style="flex:1" id="fl-apply">' + t("apply") + "</button></div></div></div>";
+    const fd = document.getElementById("fd"), fp = document.getElementById("fp");
+    const upd = () => { document.getElementById("fd-v").textContent = t("up_to", { v: n(fd.value) + " " + t("km") }); document.getElementById("fp-v").textContent = t("up_to", { v: tk(+fp.value) }); };
+    fd.oninput = fp.oninput = upd; upd();
+    layer.querySelectorAll("[data-fchip]").forEach((c) => c.addEventListener("click", () => c.setAttribute("aria-pressed", String(c.getAttribute("aria-pressed") !== "true"))));
+    document.getElementById("fl-clear").onclick = () => { fd.value = 10; fp.value = 400; upd(); layer.querySelectorAll("[data-fchip]").forEach((c) => c.setAttribute("aria-pressed", "false")); };
+    document.getElementById("fl-apply").onclick = () => {
+      S.maxDist = +fd.value; S.maxPrice = +fp.value;
+      layer.querySelectorAll("[data-fchip]").forEach((c) => { c.getAttribute("aria-pressed") === "true" ? S.chips.add(c.dataset.fchip) : S.chips.delete(c.dataset.fchip); });
+      layer.innerHTML = ""; route();
+    };
+    bindClose();
+  }
+  function openDemo() {
+    const states = [["normal", "st_normal"], ["empty", "st_empty"], ["offline", "st_offline"]];
+    layer.innerHTML = '<div class="scrim" data-close><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dm-h"><div class="handle"></div><div class="sheet-head"><h2 class="t-h2" id="dm-h">' + t("demo_h") + '</h2><button class="icon-btn" data-close aria-label="' + t("close") + '">' + icon("x") + '</button></div><p class="t-muted">' + t("demo_p") + '</p><div class="opt-list">' +
+      states.map(([k, l]) => '<label><input type="radio" name="demo" value="' + k + '"' + (S.demo === k ? " checked" : "") + ">" + t(l) + "</label>").join("") +
+      '<label><input type="checkbox" id="fail"' + (S.failNext ? " checked" : "") + ">" + t("st_fail") + "</label></div></div></div>";
+    layer.querySelectorAll('input[name="demo"]').forEach((r) => r.addEventListener("change", () => { S.demo = r.value; document.getElementById("offline").hidden = S.demo !== "offline"; route(); }));
+    document.getElementById("fail").addEventListener("change", (e) => { S.failNext = e.target.checked; });
+    bindClose();
+  }
+  function setDemoRadio() { const f = document.getElementById("fail"); if (f) f.checked = S.failNext; }
+  function bindClose() { layer.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", (e) => { if (e.target === el || el.classList.contains("icon-btn")) layer.innerHTML = ""; })); }
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && layer.innerHTML) layer.innerHTML = ""; });
+
+  /* ---------- events ---------- */
+  view.addEventListener("click", (e) => {
+    const el = e.target.closest("button, [data-act]");
+    if (!el) return;
+    if (el.dataset.mode) { S.mode = el.dataset.mode; renderDiscover(); }
+    else if (el.dataset.chip) { const k = el.dataset.chip; S.chips.has(k) ? S.chips.delete(k) : S.chips.add(k); renderDiscover(); }
+    else if (el.dataset.pin) { S.selected = +el.dataset.pin; renderDiscover(); }
+    else if (el.id === "filters-btn") openFilters();
+    else if (el.dataset.qty) { S.qty += +el.dataset.qty; S.payState = S.payState === "failed" ? "failed" : "idle"; renderCheckout(bagById(location.hash.split("-")[1])); }
+    else if (el.id === "pay") startPay(bagById(location.hash.split("-")[1]));
+    else if (el.id === "call") { const p = el.dataset.phone; (navigator.clipboard?.writeText(p) || Promise.reject()).then(() => toast(t("copied") + ": " + p), () => toast(p)); }
+    else if (el.id === "cancel") toast(t("soon"));
+    else if (el.dataset.act === "clear") { S.chips.clear(); S.maxDist = 10; S.maxPrice = 400; renderDiscover(); }
+    else if (el.dataset.act === "widen") { S.demo = "normal"; S.maxDist = 10; renderDiscover(); }
+    else if (el.dataset.act === "demo") openDemo();
+    else if (el.dataset.act === "notify") toast(B.lang === "bn" ? "ঠিক আছে, ব্যাগ এলেই জানাব।" : "Done. We'll ping you when bags go live.");
+  });
+  view.addEventListener("change", (e) => {
+    if (e.target.id === "sort") { S.sort = e.target.value; renderDiscover(); }
+    if (e.target.name === "pay") { S.pay = e.target.value; if (S.payState === "failed") S.payState = "idle"; renderCheckout(bagById(location.hash.split("-")[1])); }
+    if (e.target.id === "notify-shop" && e.target.checked) toast(B.lang === "bn" ? "দোকান ব্যাগ দিলেই জানাব।" : "We'll let you know when they list.");
+  });
+  document.querySelectorAll("[data-soon]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); toast(t("soon")); }));
+  document.getElementById("area-btn").addEventListener("click", () => toast(t("soon")));
+  document.getElementById("demo-btn").addEventListener("click", openDemo);
+
+  /* ---------- router ---------- */
+  let lastHash = null;
+  function route() {
+    document.body.classList.toggle("on-discover", !/^#(bag|checkout|order)-/.test(location.hash));
+    const h = location.hash.replace("#", "") || "discover";
+    const [name, id] = h.split("-");
+    const b = id ? bagById(id) : null;
+    if (h !== lastHash) { if (name !== "checkout") { S.payState = "idle"; } if (name === "checkout" && !lastHash?.startsWith("checkout")) S.qty = 1; }
+    if (name === "bag" && b) renderDetail(b);
+    else if (name === "checkout" && b) renderCheckout(b);
+    else if (name === "order" && b) renderOrder(b);
+    else renderDiscover();
+    if (h !== lastHash) { scrollTo(0, 0); lastHash = h; }
+  }
+  addEventListener("hashchange", route);
+  let wasDesk = matchMedia("(min-width: 900px)").matches;
+  addEventListener("resize", () => { const d = matchMedia("(min-width: 900px)").matches; if (d !== wasDesk) { wasDesk = d; route(); } });
+  setInterval(() => { const h = location.hash; if (h.startsWith("#order")) tickOrder(bagById(h.split("-")[1])); }, 15000);
+
+  document.getElementById("logo-mark").innerHTML = B.logoMark;
+  document.getElementById("area-pin").innerHTML = icon("pin");
+  document.getElementById("area-chev").innerHTML = icon("down");
+  document.getElementById("off-ic").innerHTML = icon("wifioff");
+  document.querySelectorAll("[data-ic]").forEach((el) => { el.innerHTML = icon(el.dataset.ic); });
+  B.onLang(() => { route(); });
+  B.initLangToggle();
+})();
+</script>
+</body>
+</html>
